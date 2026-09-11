@@ -15,17 +15,20 @@ import {
   ANSI_ROLES,
   DEFAULT_MAPPING,
   DEFAULT_PALETTE,
+  DEFAULT_TOKEN_ROLES,
   hexForRole,
-  TOKEN_ROLES,
+  type EditableRole,
   type Mapping,
   type PaletteColor,
   type SemanticRole,
 } from "@/lib/palette";
 import { applyTheme, type Theme } from "@/lib/theme";
+import { ComponentShowcase } from "./ComponentShowcase";
 import { MappingEditor } from "./MappingEditor";
 import { PaletteEditor } from "./PaletteEditor";
 import { PaletteFormSchema } from "./palette-form";
 import { TerminalPreview } from "./TerminalPreview";
+import { TokenRoleEditor } from "./TokenRoleEditor";
 
 function App() {
   const form = useZodForm(PaletteFormSchema, {
@@ -37,6 +40,7 @@ function App() {
     | undefined;
   const colors = watchedColors ?? DEFAULT_PALETTE;
 
+  const [tokenRoles, setTokenRoles] = useState<EditableRole[]>(DEFAULT_TOKEN_ROLES);
   const [mapping, setMapping] = useState<Mapping>(DEFAULT_MAPPING);
   const [darkMode, setDarkMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,13 +99,12 @@ function App() {
 
         <Separator />
 
-        <MappingEditor
-          title="Semantic mapping"
-          description="Choose which color plays each role in the theme."
-          roles={TOKEN_ROLES}
+        <TokenRoleEditor
+          roles={tokenRoles}
+          onRolesChange={setTokenRoles}
           palette={colors}
           mapping={mapping}
-          onChange={handleMappingChange}
+          onMappingChange={handleMappingChange}
         />
 
         {error && <p className="text-xs text-destructive">{error}</p>}
@@ -116,7 +119,7 @@ function App() {
           </div>
         </div>
 
-        <div ref={previewRef} data-testid="preview" className="flex w-full items-start">
+        <div ref={previewRef} data-testid="preview" className="flex w-full flex-col gap-6">
           <OsWindow title="Team Settings" className="w-full">
             <div className="flex flex-col gap-4 bg-card py-4 text-sm text-card-foreground">
               <CardHeader>
@@ -160,6 +163,8 @@ function App() {
               </CardFooter>
             </div>
           </OsWindow>
+
+          <ComponentShowcase />
         </div>
 
         <TerminalPreview palette={colors} mapping={mapping} />

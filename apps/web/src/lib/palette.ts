@@ -4,7 +4,9 @@ export interface PaletteColor {
 }
 
 export type AnsiRole = `ansi${0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15}`;
-export type SemanticRole = "neutral" | "accent" | AnsiRole;
+
+/** A mapping key: either a fixed ANSI slot, or a token role's stable `id`. */
+export type SemanticRole = string;
 
 export type Mapping = Record<SemanticRole, string>;
 
@@ -14,9 +16,22 @@ export interface RoleDescriptor {
   description?: string;
 }
 
-export const TOKEN_ROLES: RoleDescriptor[] = [
-  { role: "neutral", label: "Neutral", description: "Backgrounds, borders, and body text" },
-  { role: "accent", label: "Accent", description: "Primary actions and focus rings" },
+/**
+ * A semantic token role the user can add/rename/remove. `id` is the stable
+ * Mapping key — it never changes after creation, so renaming `label` (and
+ * Rust's `theme_from_mapping`, which only reads the "neutral"/"accent" ids)
+ * never breaks. Only the role whose `id` is literally "neutral" is protected
+ * from removal.
+ */
+export interface EditableRole {
+  id: string;
+  label: string;
+  description?: string;
+}
+
+export const DEFAULT_TOKEN_ROLES: EditableRole[] = [
+  { id: "neutral", label: "Neutral", description: "Backgrounds, borders, and body text" },
+  { id: "accent", label: "Accent", description: "Primary actions and focus rings" },
 ];
 
 interface AnsiRoleDescriptor extends RoleDescriptor {
@@ -47,8 +62,6 @@ export const ANSI_ROLES: AnsiRoleDescriptor[] = ANSI_BASE.flatMap(({ name, defau
   },
 ]);
 
-export const SEMANTIC_ROLES: RoleDescriptor[] = [...TOKEN_ROLES, ...ANSI_ROLES];
-
 export const DEFAULT_PALETTE: PaletteColor[] = [
   { name: "neutral", hex: "#71717a" },
   { name: "red", hex: "#ef4444" },
@@ -61,10 +74,7 @@ export const DEFAULT_PALETTE: PaletteColor[] = [
 export const DEFAULT_MAPPING: Mapping = {
   neutral: "neutral",
   accent: "blue",
-  ...(Object.fromEntries(ANSI_ROLES.map((r) => [r.role, r.defaultColorName])) as Record<
-    AnsiRole,
-    string
-  >),
+  ...Object.fromEntries(ANSI_ROLES.map((r) => [r.role, r.defaultColorName])),
 };
 
 /** Looks up the hex for a mapped role, falling back to the first palette entry. */

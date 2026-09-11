@@ -3,8 +3,8 @@ import {
   ANSI_ROLES,
   DEFAULT_MAPPING,
   DEFAULT_PALETTE,
+  DEFAULT_TOKEN_ROLES,
   hexForRole,
-  SEMANTIC_ROLES,
   type PaletteColor,
 } from "./palette";
 
@@ -63,9 +63,18 @@ describe("ANSI_ROLES", () => {
 });
 
 describe("DEFAULT_MAPPING", () => {
-  it("has an entry for every semantic role, including all 16 ANSI slots", () => {
-    for (const { role } of SEMANTIC_ROLES) {
+  it("has an entry for every default token role and all 16 ANSI slots", () => {
+    for (const { id } of DEFAULT_TOKEN_ROLES) {
+      expect(DEFAULT_MAPPING[id]).toBeDefined();
+    }
+    for (const { role } of ANSI_ROLES) {
       expect(DEFAULT_MAPPING[role]).toBeDefined();
     }
+  });
+});
+
+describe("DEFAULT_TOKEN_ROLES", () => {
+  it("seeds exactly neutral and accent, with neutral first", () => {
+    expect(DEFAULT_TOKEN_ROLES.map((r) => r.id)).toEqual(["neutral", "accent"]);
   });
 });

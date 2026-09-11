@@ -114,3 +114,27 @@ test("toggling dark mode recomputes and reapplies the preview theme", async ({ p
   const lightnessOf = (oklch: string) => Number(oklch.match(/oklch\(([\d.]+)/)?.[1]);
   expect(lightnessOf(darkBackground)).toBeLessThan(lightnessOf(darkForeground));
 });
+
+test("component gallery cycles through 3 components and shows live color-token swatches", async ({
+  page,
+}) => {
+  const showcase = page.getByTestId("component-showcase");
+  await expect(showcase.getByText("Button")).toBeVisible();
+  await expect(showcase.getByText("bg-primary")).toBeVisible();
+  await expect(showcase.getByText("1 / 3")).toBeVisible();
+
+  // The swatch is a real element styled via inline CSS var, not a static color.
+  const swatchColor = await showcase
+    .getByText("bg-primary")
+    .locator("xpath=preceding-sibling::span[1]")
+    .evaluate((el) => (el as HTMLElement).style.backgroundColor);
+  expect(swatchColor).toBe("var(--primary)");
+
+  await showcase.getByRole("button", { name: "Next component" }).click();
+  await expect(showcase.getByText("Badge")).toBeVisible();
+  await expect(showcase.getByText("2 / 3")).toBeVisible();
+
+  await showcase.getByRole("button", { name: "Next component" }).click();
+  await expect(showcase.getByText("Switch")).toBeVisible();
+  await expect(showcase.getByText("3 / 3")).toBeVisible();
+});
