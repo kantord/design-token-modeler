@@ -1,0 +1,8 @@
+{
+  "name": "design-token-modeler",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "build:wasm": "wasm-pack build crates/hello-wasm --target web --out-dir pkg"
+  }
+}

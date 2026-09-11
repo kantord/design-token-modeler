@@ -1,0 +1,3 @@
+[workspace]
+resolver = "2"
+members = ["crates/hello-lib", "crates/hello-cli", "crates/hello-wasm"]
