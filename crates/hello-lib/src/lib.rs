@@ -1,3 +1,7 @@
+pub mod theme;
+
+pub use theme::{theme_from_mapping, Theme};
+
 pub fn greeting() -> String {
     "Hello, world!".to_string()
 }

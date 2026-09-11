@@ -2,3 +2,5 @@
 node_modules
 dist
 /crates/*/pkg
+/apps/web/playwright-report
+/apps/web/test-results

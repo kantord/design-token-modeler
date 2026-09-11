@@ -26,6 +26,11 @@ build-wasm:
 dev: setup
     pnpm --filter web run dev
 
+# Typecheck and run the web app's vitest suite
+test-web: setup
+    pnpm --filter web run typecheck
+    pnpm --filter web run test
+
 # Build the static multi-page site into apps/web/dist
 build-web: setup
     pnpm --filter web run build
@@ -34,10 +39,18 @@ build-web: setup
 preview: build-web
     pnpm --filter web run preview
 
+# One-time: download the browser binaries Playwright needs for e2e tests
+install-browsers:
+    pnpm --filter web exec playwright install chromium
+
+# Run Playwright end-to-end tests (browser binaries must already be installed, see install-browsers)
+test-e2e: setup
+    pnpm --filter web run test:e2e
+
 # --- Everything -------------------------------------------------------------
 
 # Build and test everything (Rust + wasm + static site)
-build: test build-web
+build: test test-web build-web
 
 # Remove all build artifacts
 clean:
