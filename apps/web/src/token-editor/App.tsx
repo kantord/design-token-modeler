@@ -3,17 +3,29 @@ import { themeFromColorMapping } from "hello-wasm";
 import { FormProvider, useWatch } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { OsWindow } from "@/components/ui/os-window";
 import { Separator } from "@/components/ui/separator";
+import { Sidebar } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import { useZodForm } from "@/lib/insane-forms";
-import { DEFAULT_MAPPING, DEFAULT_PALETTE, hexForRole, type Mapping, type PaletteColor, type SemanticRole } from "@/lib/palette";
+import {
+  ANSI_ROLES,
+  DEFAULT_MAPPING,
+  DEFAULT_PALETTE,
+  hexForRole,
+  TOKEN_ROLES,
+  type Mapping,
+  type PaletteColor,
+  type SemanticRole,
+} from "@/lib/palette";
 import { applyTheme, type Theme } from "@/lib/theme";
 import { MappingEditor } from "./MappingEditor";
 import { PaletteEditor } from "./PaletteEditor";
 import { PaletteFormSchema } from "./palette-form";
+import { TerminalPreview } from "./TerminalPreview";
 
 function App() {
   const form = useZodForm(PaletteFormSchema, {
@@ -26,6 +38,7 @@ function App() {
   const colors = watchedColors ?? DEFAULT_PALETTE;
 
   const [mapping, setMapping] = useState<Mapping>(DEFAULT_MAPPING);
+  const [darkMode, setDarkMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
@@ -35,9 +48,15 @@ function App() {
     const names = new Set(colors.map((c) => c.name));
     setMapping((m) => {
       const fallback = colors[0]?.name ?? "";
-      const neutral = names.has(m.neutral) ? m.neutral : fallback;
-      const accent = names.has(m.accent) ? m.accent : fallback;
-      return neutral === m.neutral && accent === m.accent ? m : { neutral, accent };
+      let changed = false;
+      const next = { ...m };
+      for (const role of Object.keys(next) as SemanticRole[]) {
+        if (!names.has(next[role])) {
+          next[role] = fallback;
+          changed = true;
+        }
+      }
+      return changed ? next : m;
     });
   }, [colors]);
 
@@ -46,14 +65,14 @@ function App() {
 
   const theme = useMemo<Theme | null>(() => {
     try {
-      const t = themeFromColorMapping(neutralHex, accentHex) as Theme;
+      const t = themeFromColorMapping(neutralHex, accentHex, darkMode) as Theme;
       setError(null);
       return t;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
       return null;
     }
-  }, [neutralHex, accentHex]);
+  }, [neutralHex, accentHex, darkMode]);
 
   useEffect(() => {
     if (theme && previewRef.current) {
@@ -66,64 +85,96 @@ function App() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-6 lg:flex-row">
-      <div className="flex w-full flex-col gap-6 lg:w-96">
+    <main className="mx-auto flex min-h-screen max-w-[100rem] flex-col gap-6 p-6 lg:flex-row">
+      <Sidebar>
         <FormProvider {...form}>
           <form onSubmit={(event) => event.preventDefault()}>
             <PaletteEditor />
           </form>
         </FormProvider>
-        <MappingEditor palette={colors} mapping={mapping} onChange={handleMappingChange} />
+
+        <Separator />
+
+        <MappingEditor
+          title="Semantic mapping"
+          description="Choose which color plays each role in the theme."
+          roles={TOKEN_ROLES}
+          palette={colors}
+          mapping={mapping}
+          onChange={handleMappingChange}
+        />
+
         {error && <p className="text-xs text-destructive">{error}</p>}
+      </Sidebar>
+
+      <div className="flex w-full flex-1 flex-col items-center gap-6">
+        <div className="flex w-full items-center justify-between">
+          <h2 className="text-sm font-medium text-muted-foreground">Preview</h2>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="dark-mode-toggle">Dark mode</Label>
+            <Switch id="dark-mode-toggle" isSelected={darkMode} onChange={setDarkMode} />
+          </div>
+        </div>
+
+        <div ref={previewRef} data-testid="preview" className="flex w-full items-start">
+          <OsWindow title="Team Settings" className="w-full">
+            <div className="flex flex-col gap-4 bg-card py-4 text-sm text-card-foreground">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Team settings</CardTitle>
+                  <Badge>Pro plan</Badge>
+                </div>
+                <CardDescription>
+                  These controls are styled entirely from the CSS variables generated by the
+                  editor on the left.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="team-name">Team name</Label>
+                  <Input id="team-name" defaultValue="Design Systems" />
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="email-notifications" className="flex-col items-start gap-0.5">
+                    Email notifications
+                    <span className="font-normal text-muted-foreground">
+                      Get notified when tokens change
+                    </span>
+                  </Label>
+                  <Switch id="email-notifications" defaultSelected />
+                </div>
+              </CardContent>
+              <CardFooter className="flex-col items-stretch gap-2 border-t pt-4">
+                <div className="flex gap-2">
+                  <Button variant="outline" className="flex-1">
+                    Cancel
+                  </Button>
+                  <Button className="flex-1">Save changes</Button>
+                </div>
+                <Button variant="destructive" className="w-full">
+                  Delete team
+                </Button>
+              </CardFooter>
+            </div>
+          </OsWindow>
+        </div>
+
+        <TerminalPreview palette={colors} mapping={mapping} />
       </div>
 
-      <div
-        ref={previewRef}
-        data-testid="preview"
-        className="flex w-full flex-1 items-start justify-center rounded-xl bg-background p-8 text-foreground ring-1 ring-border"
-      >
-        <Card className="w-full max-w-sm">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Team settings</CardTitle>
-              <Badge>Pro plan</Badge>
-            </div>
-            <CardDescription>
-              These controls are styled entirely from the CSS variables generated by the
-              editor on the left.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="team-name">Team name</Label>
-              <Input id="team-name" defaultValue="Design Systems" />
-            </div>
-
-            <Separator />
-
-            <div className="flex items-center justify-between gap-2">
-              <Label htmlFor="email-notifications" className="flex-col items-start gap-0.5">
-                Email notifications
-                <span className="font-normal text-muted-foreground">
-                  Get notified when tokens change
-                </span>
-              </Label>
-              <Switch id="email-notifications" defaultSelected />
-            </div>
-          </CardContent>
-          <CardFooter className="flex-col items-stretch gap-2 border-t pt-4">
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1">
-                Cancel
-              </Button>
-              <Button className="flex-1">Save changes</Button>
-            </div>
-            <Button variant="destructive" className="w-full">
-              Delete team
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
+      <Sidebar>
+        <MappingEditor
+          title="Terminal colors (ANSI 16)"
+          description="Map each ANSI slot to a palette color."
+          roles={ANSI_ROLES}
+          palette={colors}
+          mapping={mapping}
+          onChange={handleMappingChange}
+        />
+      </Sidebar>
     </main>
   );
 }

@@ -27,7 +27,7 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
+  --background: oklch(0.97 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
@@ -54,5 +54,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Grain texture on our own page background only — the previewed shadcn
+       app shares the same flat --background value (see theme.rs), so this is
+       what visually tells the two apart instead of a color difference. */
+    background-image: url("/noise.svg");
+    background-repeat: repeat;
+    background-size: 300px 300px;
+    background-blend-mode: multiply;
   }
 }

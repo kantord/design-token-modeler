@@ -61,3 +61,56 @@ test("picking a different accent swatch changes the preview", async ({ page }) =
     .poll(() => preview.evaluate((el) => (el as HTMLElement).style.getPropertyValue("--primary")))
     .not.toBe(before);
 });
+
+test("terminal preview renders real xterm.js panels for the ANSI palette and a sample session", async ({
+  page,
+}) => {
+  const panels = page.getByTestId("xterm-panel");
+  await expect(panels).toHaveCount(2);
+
+  const text = (await panels.allTextContents()).join("\n");
+  expect(text).toContain("ANSI 0");
+  expect(text).toContain("ANSI 15");
+  expect(text).toContain("git status");
+});
+
+test("terminal preview shows both a dark and a light color scheme", async ({ page }) => {
+  await expect(page.getByText("zsh — dark")).toBeVisible();
+  await expect(page.getByText("zsh — light")).toBeVisible();
+
+  const panels = page.getByTestId("xterm-panel");
+  const darkBackground = await panels
+    .nth(0)
+    .evaluate((el) => getComputedStyle(el.querySelector(".xterm-scrollable-element")!).backgroundColor);
+  const lightBackground = await panels
+    .nth(1)
+    .evaluate((el) => getComputedStyle(el.querySelector(".xterm-scrollable-element")!).backgroundColor);
+  expect(darkBackground).not.toBe(lightBackground);
+});
+
+test("toggling dark mode recomputes and reapplies the preview theme", async ({ page }) => {
+  const preview = page.getByTestId("preview");
+  const lightBackground = await preview.evaluate((el) =>
+    (el as HTMLElement).style.getPropertyValue("--background"),
+  );
+
+  // The real control is a visually-hidden native input inside a styled label
+  // (react-aria's Switch pattern) — Playwright's click-interception check
+  // sees the label on top, so this needs force like a real label-click would.
+  await page.getByRole("switch", { name: /dark mode/i }).click({ force: true });
+
+  await expect
+    .poll(() => preview.evaluate((el) => (el as HTMLElement).style.getPropertyValue("--background")))
+    .not.toBe(lightBackground);
+
+  const darkBackground = await preview.evaluate((el) =>
+    (el as HTMLElement).style.getPropertyValue("--background"),
+  );
+  const darkForeground = await preview.evaluate((el) =>
+    (el as HTMLElement).style.getPropertyValue("--foreground"),
+  );
+  // Dark background should be much darker than dark foreground (a real inversion,
+  // not just a different hue at the same lightness).
+  const lightnessOf = (oklch: string) => Number(oklch.match(/oklch\(([\d.]+)/)?.[1]);
+  expect(lightnessOf(darkBackground)).toBeLessThan(lightnessOf(darkForeground));
+});

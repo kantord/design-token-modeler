@@ -117,10 +117,66 @@ pub struct Theme {
     pub ring: String,
 }
 
+/// The lightness/chroma pairs that differ between light and dark mode; hue
+/// always comes from whichever color (neutral or accent) a field is tinted
+/// with, so only these magnitudes need a mode-specific table.
+struct Levels {
+    background: (f64, f64),
+    foreground: (f64, f64),
+    secondary: (f64, f64),
+    secondary_foreground: (f64, f64),
+    muted: (f64, f64),
+    muted_foreground: (f64, f64),
+    accent: (f64, f64),
+    accent_foreground: (f64, f64),
+    border: (f64, f64),
+    destructive: Oklch,
+}
+
+const LIGHT: Levels = Levels {
+    // Matches the app's own --background (oklch(0.97 0 0)) so the previewed
+    // shadcn app and our own site chrome share the same light-mode surface —
+    // the noise texture on our own page background is what visually tells
+    // them apart, not a different color.
+    background: (0.97, 0.002),
+    foreground: (0.145, 0.01),
+    secondary: (0.97, 0.012),
+    secondary_foreground: (0.205, 0.01),
+    muted: (0.97, 0.008),
+    muted_foreground: (0.556, 0.015),
+    accent: (0.94, 0.03),
+    accent_foreground: (0.205, 0.01),
+    border: (0.90, 0.015),
+    destructive: Oklch {
+        l: 0.577,
+        c: 0.245,
+        h: 27.325,
+    },
+};
+
+const DARK: Levels = Levels {
+    background: (0.145, 0.01),
+    foreground: (0.985, 0.01),
+    secondary: (0.269, 0.012),
+    secondary_foreground: (0.985, 0.01),
+    muted: (0.269, 0.008),
+    muted_foreground: (0.708, 0.015),
+    accent: (0.269, 0.03),
+    accent_foreground: (0.985, 0.01),
+    border: (0.269, 0.015),
+    // Shadcn's own dark destructive: lighter and less saturated than the
+    // light-mode red, for legibility against a near-black background.
+    destructive: Oklch {
+        l: 0.704,
+        c: 0.191,
+        h: 22.216,
+    },
+};
+
 /// Derives a full [`Theme`] from two mapped colors: `neutral` drives the grays
 /// (background, foreground, card, muted, border, ...) and `accent` drives the
 /// brand tokens (primary, ring, accent). Both are `#rgb` or `#rrggbb` hex.
-pub fn theme_from_mapping(neutral_hex: &str, accent_hex: &str) -> Result<Theme, String> {
+pub fn theme_from_mapping(neutral_hex: &str, accent_hex: &str, dark: bool) -> Result<Theme, String> {
     let neutral = hex_to_oklch(neutral_hex)?;
     let accent = hex_to_oklch(accent_hex)?;
     let hn = neutral.h;
@@ -137,23 +193,20 @@ pub fn theme_from_mapping(neutral_hex: &str, accent_hex: &str) -> Result<Theme, 
         }
     };
 
-    let background = tint_neutral(0.995, 0.002);
-    let foreground = tint_neutral(0.145, 0.01);
+    let levels = if dark { &DARK } else { &LIGHT };
+
+    let background = tint_neutral(levels.background.0, levels.background.1);
+    let foreground = tint_neutral(levels.foreground.0, levels.foreground.1);
     let card = background;
     let popover = background;
-    let secondary = tint_neutral(0.97, 0.012);
-    let secondary_foreground = tint_neutral(0.205, 0.01);
-    let muted = tint_neutral(0.97, 0.008);
-    let muted_foreground = tint_neutral(0.556, 0.015);
-    let accent_bg = tint_accent(0.94, 0.03);
-    let accent_foreground = tint_accent(0.205, 0.01);
-    // Destructive stays a fixed semantic red, independent of the mapped colors.
-    let destructive = Oklch {
-        l: 0.577,
-        c: 0.245,
-        h: 27.325,
-    };
-    let border = tint_neutral(0.90, 0.015);
+    let secondary = tint_neutral(levels.secondary.0, levels.secondary.1);
+    let secondary_foreground = tint_neutral(levels.secondary_foreground.0, levels.secondary_foreground.1);
+    let muted = tint_neutral(levels.muted.0, levels.muted.1);
+    let muted_foreground = tint_neutral(levels.muted_foreground.0, levels.muted_foreground.1);
+    let accent_bg = tint_accent(levels.accent.0, levels.accent.1);
+    let accent_foreground = tint_accent(levels.accent_foreground.0, levels.accent_foreground.1);
+    let border = tint_neutral(levels.border.0, levels.border.1);
+    let destructive = levels.destructive;
 
     Ok(Theme {
         background: fmt_oklch(background),
@@ -218,37 +271,37 @@ mod tests {
 
     #[test]
     fn dark_accent_gets_light_foreground() {
-        let theme = theme_from_mapping("#888888", "#000000").unwrap();
+        let theme = theme_from_mapping("#888888", "#000000", false).unwrap();
         assert!(theme.primary_foreground.contains("0.9850"));
     }
 
     #[test]
     fn light_accent_gets_dark_foreground() {
-        let theme = theme_from_mapping("#888888", "#ffffff").unwrap();
+        let theme = theme_from_mapping("#888888", "#ffffff", false).unwrap();
         assert!(theme.primary_foreground.contains("0.1450"));
     }
 
     #[test]
     fn ring_matches_accent() {
-        let theme = theme_from_mapping("#888888", "#6366f1").unwrap();
+        let theme = theme_from_mapping("#888888", "#6366f1", false).unwrap();
         assert_eq!(theme.ring, theme.primary);
     }
 
     #[test]
     fn destructive_is_stable_regardless_of_mapping() {
-        let a = theme_from_mapping("#888888", "#6366f1").unwrap();
-        let b = theme_from_mapping("#71717a", "#22c55e").unwrap();
+        let a = theme_from_mapping("#888888", "#6366f1", false).unwrap();
+        let b = theme_from_mapping("#71717a", "#22c55e", false).unwrap();
         assert_eq!(a.destructive, b.destructive);
     }
 
     #[test]
     fn invalid_neutral_hex_propagates_as_error() {
-        assert!(theme_from_mapping("#zzzzzz", "#6366f1").is_err());
+        assert!(theme_from_mapping("#zzzzzz", "#6366f1", false).is_err());
     }
 
     #[test]
     fn invalid_accent_hex_propagates_as_error() {
-        assert!(theme_from_mapping("#888888", "#zzzzzz").is_err());
+        assert!(theme_from_mapping("#888888", "#zzzzzz", false).is_err());
     }
 
     #[test]
@@ -256,7 +309,7 @@ mod tests {
         // A neutral with a distinct hue (blue-ish gray) paired with a very
         // differently-hued accent (orange): background should follow neutral's
         // hue, not accent's.
-        let theme = theme_from_mapping("#64748b", "#f97316").unwrap();
+        let theme = theme_from_mapping("#64748b", "#f97316", false).unwrap();
         let neutral_hue = hex_to_oklch("#64748b").unwrap().h;
         let accent_hue = hex_to_oklch("#f97316").unwrap().h;
         assert!((neutral_hue - accent_hue).abs() > 30.0);
@@ -267,5 +320,55 @@ mod tests {
             theme.background,
             rounded_neutral_hue
         );
+    }
+
+    #[test]
+    fn dark_mode_inverts_background_and_foreground_lightness() {
+        let light = theme_from_mapping("#888888", "#6366f1", false).unwrap();
+        let dark = theme_from_mapping("#888888", "#6366f1", true).unwrap();
+        assert!(light.background.contains("0.9700"));
+        assert!(light.foreground.contains("0.1450"));
+        assert!(dark.background.contains("0.1450"));
+        assert!(dark.foreground.contains("0.9850"));
+    }
+
+    #[test]
+    fn dark_mode_keeps_the_same_accent_hue_and_hex_input() {
+        let light = theme_from_mapping("#888888", "#6366f1", false).unwrap();
+        let dark = theme_from_mapping("#888888", "#6366f1", true).unwrap();
+        // Primary is the accent color itself — untouched by the mode.
+        assert_eq!(light.primary, dark.primary);
+        assert_eq!(light.ring, dark.ring);
+    }
+
+    #[test]
+    fn dark_mode_uses_a_lighter_less_saturated_destructive() {
+        let light = theme_from_mapping("#888888", "#6366f1", false).unwrap();
+        let dark = theme_from_mapping("#888888", "#6366f1", true).unwrap();
+        assert_ne!(light.destructive, dark.destructive);
+        assert!(dark.destructive.contains("0.7040"));
+    }
+
+    #[test]
+    fn dark_mode_still_tracks_neutral_hue() {
+        let dark = theme_from_mapping("#64748b", "#f97316", true).unwrap();
+        let neutral_hue = hex_to_oklch("#64748b").unwrap().h;
+        let rounded_neutral_hue = format!("{neutral_hue:.2}");
+        assert!(
+            dark.background.contains(&rounded_neutral_hue),
+            "expected dark background {} to carry neutral hue {}",
+            dark.background,
+            rounded_neutral_hue
+        );
+    }
+
+    #[test]
+    fn light_mode_background_lightness_matches_the_site_chrome_background() {
+        // apps/web/src/index.css sets --background: oklch(0.97 0 0) for the app's
+        // own page chrome; the previewed shadcn app should share that lightness
+        // in light mode, so a noise texture (applied only to the site's own
+        // background) is what visually distinguishes them, not a color difference.
+        let theme = theme_from_mapping("#888888", "#6366f1", false).unwrap();
+        assert!(theme.background.contains("0.9700"));
     }
 }
