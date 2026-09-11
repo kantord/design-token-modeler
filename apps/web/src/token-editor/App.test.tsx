@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { Theme } from "@/lib/theme";
@@ -43,7 +43,10 @@ describe("App", () => {
     render(<App />);
     const preview = screen.getByTestId("preview");
 
-    await user.click(screen.getByRole("button", { name: /remove blue/i }));
+    // Palette order is neutral, red, orange, blue, green, yellow — row 3 is "blue",
+    // the default accent mapping.
+    const blueRow = screen.getAllByTestId("color-row")[3];
+    await user.click(within(blueRow).getByRole("button", { name: /remove/i }));
 
     expect(preview.style.getPropertyValue("--primary")).toBe("#71717a");
   });

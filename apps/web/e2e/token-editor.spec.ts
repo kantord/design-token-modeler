@@ -33,7 +33,7 @@ test("adding a color appends a new named row", async ({ page }) => {
   await page.getByRole("button", { name: "Add color" }).click();
 
   await expect(nameInputs).toHaveCount(countBefore + 1);
-  await expect(nameInputs.last()).toHaveValue("color-1");
+  await expect(nameInputs.last()).toHaveValue("");
   await expect(page.getByRole("button", { name: /#000000/i })).toBeVisible();
 });
 
@@ -41,7 +41,9 @@ test("removing the accent-mapped color reassigns the mapping", async ({ page }) 
   const preview = page.getByTestId("preview");
   const before = await preview.evaluate((el) => (el as HTMLElement).style.getPropertyValue("--primary"));
 
-  await page.getByRole("button", { name: /remove blue/i }).click();
+  // Palette order is neutral, red, orange, blue, green, yellow — row 3 is "blue",
+  // the default accent mapping.
+  await page.getByTestId("color-row").nth(3).getByRole("button", { name: /remove/i }).click();
 
   await expect(page.getByRole("button", { name: /#3b82f6/i })).toHaveCount(0);
   await expect

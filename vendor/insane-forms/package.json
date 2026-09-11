@@ -1,0 +1,20 @@
+{
+  "name": "insane-forms",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Vendored copy of insane-forms (schema-driven React forms on plain Zod). See VENDOR.md.",
+  "license": "MIT",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": ["dist"],
+  "sideEffects": false,
+  "peerDependencies": {
+    "@hookform/resolvers": "^5.0.0",
+    "react": ">=18",
+    "react-dom": ">=18",
+    "react-hook-form": "^7.50.0",
+    "zod": "^4.4.0"
+  }
+}

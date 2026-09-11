@@ -1,5 +1,6 @@
 packages:
   - "apps/*"
   - "crates/*/pkg"
+  - "vendor/*"
 allowBuilds:
   esbuild: true

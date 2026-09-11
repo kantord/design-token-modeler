@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { themeFromColorMapping } from "hello-wasm";
+import { FormProvider, useWatch } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,20 +8,41 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
+import { useZodForm } from "@/lib/insane-forms";
 import { DEFAULT_MAPPING, DEFAULT_PALETTE, hexForRole, type Mapping, type PaletteColor, type SemanticRole } from "@/lib/palette";
 import { applyTheme, type Theme } from "@/lib/theme";
 import { MappingEditor } from "./MappingEditor";
 import { PaletteEditor } from "./PaletteEditor";
+import { PaletteFormSchema } from "./palette-form";
 
 function App() {
-  const [palette, setPalette] = useState<PaletteColor[]>(DEFAULT_PALETTE);
+  const form = useZodForm(PaletteFormSchema, {
+    defaults: { colors: DEFAULT_PALETTE },
+    mode: "onChange",
+  });
+  const watchedColors = useWatch({ control: form.control, name: "colors" }) as unknown as
+    | PaletteColor[]
+    | undefined;
+  const colors = watchedColors ?? DEFAULT_PALETTE;
+
   const [mapping, setMapping] = useState<Mapping>(DEFAULT_MAPPING);
   const [error, setError] = useState<string | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const nextColorId = useRef(1);
 
-  const neutralHex = hexForRole(palette, mapping, "neutral");
-  const accentHex = hexForRole(palette, mapping, "accent");
+  // A mapped color may be removed or renamed out from under its role — fall
+  // back to the first remaining color when that happens.
+  useEffect(() => {
+    const names = new Set(colors.map((c) => c.name));
+    setMapping((m) => {
+      const fallback = colors[0]?.name ?? "";
+      const neutral = names.has(m.neutral) ? m.neutral : fallback;
+      const accent = names.has(m.accent) ? m.accent : fallback;
+      return neutral === m.neutral && accent === m.accent ? m : { neutral, accent };
+    });
+  }, [colors]);
+
+  const neutralHex = hexForRole(colors, mapping, "neutral");
+  const accentHex = hexForRole(colors, mapping, "accent");
 
   const theme = useMemo<Theme | null>(() => {
     try {
@@ -43,44 +65,15 @@ function App() {
     setMapping((m) => ({ ...m, [role]: colorName }));
   }
 
-  function handleRename(index: number, name: string) {
-    setPalette((p) => p.map((c, i) => (i === index ? { ...c, name } : c)));
-  }
-
-  function handleRecolor(index: number, hex: string) {
-    setPalette((p) => p.map((c, i) => (i === index ? { ...c, hex } : c)));
-  }
-
-  function handleRemove(index: number) {
-    setPalette((p) => {
-      if (p.length <= 1) return p;
-      const removed = p[index];
-      const next = p.filter((_, i) => i !== index);
-      const fallback = next[0]?.name ?? "";
-      setMapping((m) => ({
-        neutral: m.neutral === removed.name ? fallback : m.neutral,
-        accent: m.accent === removed.name ? fallback : m.accent,
-      }));
-      return next;
-    });
-  }
-
-  function handleAdd() {
-    const name = `color-${nextColorId.current++}`;
-    setPalette((p) => [...p, { name, hex: "#000000" }]);
-  }
-
   return (
     <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-6 lg:flex-row">
       <div className="flex w-full flex-col gap-6 lg:w-96">
-        <PaletteEditor
-          palette={palette}
-          onRename={handleRename}
-          onRecolor={handleRecolor}
-          onRemove={handleRemove}
-          onAdd={handleAdd}
-        />
-        <MappingEditor palette={palette} mapping={mapping} onChange={handleMappingChange} />
+        <FormProvider {...form}>
+          <form onSubmit={(event) => event.preventDefault()}>
+            <PaletteEditor />
+          </form>
+        </FormProvider>
+        <MappingEditor palette={colors} mapping={mapping} onChange={handleMappingChange} />
         {error && <p className="text-xs text-destructive">{error}</p>}
       </div>
 
