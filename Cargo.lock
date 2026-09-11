@@ -50,6 +50,7 @@ name = "hello-wasm"
 version = "0.1.0"
 dependencies = [
  "hello_lib",
+ "serde",
  "serde-wasm-bindgen",
  "wasm-bindgen",
 ]

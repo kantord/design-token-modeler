@@ -1,7 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ComponentShowcase } from "./ComponentShowcase";
+
+// The real parser lives in Rust; mirrored here since jsdom can't load wasm.
+vi.mock("hello-wasm", () => ({
+  tokenNameFromClass: (cls: string) => cls.split("/")[0].replace(/^(bg|text|border)-/, ""),
+}));
 
 describe("ComponentShowcase", () => {
   it("starts on the first example and shows its color-class legend", () => {

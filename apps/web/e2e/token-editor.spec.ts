@@ -10,6 +10,19 @@ test("computes real theme tokens via WASM on load", async ({ page }) => {
   expect(primary).toMatch(/^oklch\(/);
 });
 
+test("the default accent mapping resolves to blue, not a black/gray fallback", async ({ page }) => {
+  // Regression check: the wasm boundary once serialized the role->color
+  // mapping as a JS Map instead of a plain object, so every `mapping.role`
+  // lookup silently read `undefined` and every resolved color fell back to
+  // black. A default-load assertion on *only the format* (oklch(...)) can't
+  // catch that; this pins the actual lightness/chroma of the default accent.
+  const preview = page.getByTestId("preview");
+  const primary = await preview.evaluate((el) => (el as HTMLElement).style.getPropertyValue("--primary"));
+  const [, lightness, chroma] = primary.match(/^oklch\(([\d.]+) ([\d.]+)/) ?? [];
+  expect(Number(lightness)).toBeGreaterThan(0.3);
+  expect(Number(chroma)).toBeGreaterThan(0.05);
+});
+
 test("editing a mapped color's hex live-updates the preview", async ({ page }) => {
   const preview = page.getByTestId("preview");
   const before = await preview.evaluate((el) => (el as HTMLElement).style.getPropertyValue("--primary"));

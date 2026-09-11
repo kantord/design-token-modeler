@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { themeFromColorMapping } from "hello-wasm";
+import {
+  ansiRoles,
+  defaultMapping,
+  defaultPalette,
+  defaultTokenRoles,
+  reconcileMapping,
+  resolveMapping,
+  themeFromColorMapping,
+} from "hello-wasm";
 import { FormProvider, useWatch } from "react-hook-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,17 +19,7 @@ import { Separator } from "@/components/ui/separator";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
 import { useZodForm } from "@/lib/insane-forms";
-import {
-  ANSI_ROLES,
-  DEFAULT_MAPPING,
-  DEFAULT_PALETTE,
-  DEFAULT_TOKEN_ROLES,
-  hexForRole,
-  type EditableRole,
-  type Mapping,
-  type PaletteColor,
-  type SemanticRole,
-} from "@/lib/palette";
+import type { EditableRole, Mapping, PaletteColor, RoleDescriptor, SemanticRole } from "@/lib/palette";
 import { applyTheme, type Theme } from "@/lib/theme";
 import { ComponentShowcase } from "./ComponentShowcase";
 import { MappingEditor } from "./MappingEditor";
@@ -30,42 +28,49 @@ import { PaletteFormSchema } from "./palette-form";
 import { TerminalPreview } from "./TerminalPreview";
 import { TokenRoleEditor } from "./TokenRoleEditor";
 
+function shallowMappingEqual(a: Mapping, b: Mapping): boolean {
+  const aKeys = Object.keys(a);
+  return aKeys.length === Object.keys(b).length && aKeys.every((key) => a[key] === b[key]);
+}
+
 function App() {
+  // Seed data, ANSI role generation, hex resolution, and referential-integrity
+  // rules all live in Rust (crates/hello-lib/src/palette.rs) — this component
+  // only edits/watches state and renders the preview.
+  const [defaultPaletteSeed] = useState<PaletteColor[]>(() => defaultPalette() as PaletteColor[]);
+  const ansiRoleList = useMemo(() => ansiRoles() as RoleDescriptor[], []);
+
   const form = useZodForm(PaletteFormSchema, {
-    defaults: { colors: DEFAULT_PALETTE },
+    defaults: { colors: defaultPaletteSeed },
     mode: "onChange",
   });
   const watchedColors = useWatch({ control: form.control, name: "colors" }) as unknown as
     | PaletteColor[]
     | undefined;
-  const colors = watchedColors ?? DEFAULT_PALETTE;
+  const colors = watchedColors ?? defaultPaletteSeed;
 
-  const [tokenRoles, setTokenRoles] = useState<EditableRole[]>(DEFAULT_TOKEN_ROLES);
-  const [mapping, setMapping] = useState<Mapping>(DEFAULT_MAPPING);
+  const [tokenRoles, setTokenRoles] = useState<EditableRole[]>(() => defaultTokenRoles() as EditableRole[]);
+  const [mapping, setMapping] = useState<Mapping>(() => defaultMapping() as Mapping);
   const [darkMode, setDarkMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
   // A mapped color may be removed or renamed out from under its role — fall
-  // back to the first remaining color when that happens.
+  // back to the first remaining color when that happens (Rust decides what
+  // "still valid" and "fallback" mean; we just commit the result).
   useEffect(() => {
-    const names = new Set(colors.map((c) => c.name));
     setMapping((m) => {
-      const fallback = colors[0]?.name ?? "";
-      let changed = false;
-      const next = { ...m };
-      for (const role of Object.keys(next) as SemanticRole[]) {
-        if (!names.has(next[role])) {
-          next[role] = fallback;
-          changed = true;
-        }
-      }
-      return changed ? next : m;
+      const reconciled = reconcileMapping(m, colors) as Mapping;
+      return shallowMappingEqual(m, reconciled) ? m : reconciled;
     });
   }, [colors]);
 
-  const neutralHex = hexForRole(colors, mapping, "neutral");
-  const accentHex = hexForRole(colors, mapping, "accent");
+  const resolved = useMemo(
+    () => resolveMapping(mapping, colors) as Record<string, string>,
+    [mapping, colors],
+  );
+  const neutralHex = resolved.neutral ?? "#000000";
+  const accentHex = resolved.accent ?? "#000000";
 
   const theme = useMemo<Theme | null>(() => {
     try {
@@ -174,7 +179,7 @@ function App() {
         <MappingEditor
           title="Terminal colors (ANSI 16)"
           description="Map each ANSI slot to a palette color."
-          roles={ANSI_ROLES}
+          roles={ansiRoleList}
           palette={colors}
           mapping={mapping}
           onChange={handleMappingChange}

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { tokenNameFromClass } from "hello-wasm";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,11 +13,6 @@ interface ComponentExample {
   /** Every Tailwind utility class this example actually renders with that draws
    * from a shadcn color token (bg-/text-/border-), read straight from its source. */
   colorClasses: string[];
-}
-
-/** "bg-destructive/10" -> "destructive"; "text-primary-foreground" -> "primary-foreground". */
-function tokenNameFromClass(className: string): string {
-  return className.split("/")[0].replace(/^(bg|text|border)-/, "");
 }
 
 const EXAMPLES: ComponentExample[] = [

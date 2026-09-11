@@ -1,15 +1,17 @@
 import type { ITheme } from "@xterm/xterm";
+import { resolveMapping } from "hello-wasm";
 import { CardDescription, CardTitle } from "@/components/ui/card";
 import { OsWindow } from "@/components/ui/os-window";
 import { XtermPanel } from "@/components/ui/xterm-panel";
-import { hexForRole, type AnsiRole, type Mapping, type PaletteColor } from "@/lib/palette";
+import type { Mapping, PaletteColor } from "@/lib/palette";
 
 /** xterm's own chrome (background/foreground) is a fixed light or dark scheme —
  * only the 16 ANSI slots come from the mapping, so the palette being showcased
  * is never accidentally invisible against its own background. Real ANSI palettes
  * are designed to work on both, which is exactly what these two are for. */
 function ansiTheme(palette: PaletteColor[], mapping: Mapping, dark: boolean): ITheme {
-  const hex = (n: number) => hexForRole(palette, mapping, `ansi${n}` as AnsiRole);
+  const resolved = resolveMapping(mapping, palette) as Record<string, string>;
+  const hex = (n: number) => resolved[`ansi${n}`] ?? "#000000";
   return {
     background: dark ? "#1e1e1e" : "#ffffff",
     foreground: dark ? "#e5e5e5" : "#24292e",

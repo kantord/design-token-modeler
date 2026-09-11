@@ -1,3 +1,4 @@
+import { isRoleProtected } from "hello-wasm";
 import { Button } from "@/components/ui/button";
 import { CardDescription, CardTitle } from "@/components/ui/card";
 import { SwatchPicker } from "@/components/ui/color-swatch-picker";
@@ -19,7 +20,7 @@ function TokenRoleEditor({ roles, onRolesChange, palette, mapping, onMappingChan
 
   function handleRemove(index: number) {
     const role = roles[index];
-    if (!role || role.id === "neutral") return;
+    if (!role || isRoleProtected(role.id)) return;
     onRolesChange(roles.filter((_, i) => i !== index));
   }
 
@@ -49,7 +50,7 @@ function TokenRoleEditor({ roles, onRolesChange, palette, mapping, onMappingChan
                 variant="ghost"
                 size="icon"
                 aria-label={`Remove ${entry.label}`}
-                isDisabled={entry.id === "neutral"}
+                isDisabled={isRoleProtected(entry.id)}
                 onPress={() => handleRemove(index)}
               >
                 ×

@@ -5,6 +5,12 @@ import { describe, expect, it, vi } from "vitest";
 import type { EditableRole, Mapping, PaletteColor } from "@/lib/palette";
 import { TokenRoleEditor } from "./TokenRoleEditor";
 
+// The real rule (only "neutral" is protected) lives in Rust; mirrored here
+// since jsdom can't load the real wasm module.
+vi.mock("hello-wasm", () => ({
+  isRoleProtected: (id: string) => id === "neutral",
+}));
+
 const palette: PaletteColor[] = [
   { name: "neutral", hex: "#71717a" },
   { name: "blue", hex: "#3b82f6" },

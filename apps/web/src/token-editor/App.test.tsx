@@ -24,6 +24,63 @@ vi.mock("@xterm/addon-fit", () => {
   return { FitAddon };
 });
 
+// "hello-wasm" needs a real loaded wasm instance, which jsdom can't provide —
+// so the palette/mapping domain logic (normally in crates/hello-lib/src/palette.rs)
+// is re-implemented here as a faithful fixture. It's test-only: the real logic
+// lives in Rust and is covered by `cargo test`; this just lets App.tsx's own
+// wiring (state, effects, DOM application) be exercised in isolation.
+const DEFAULT_PALETTE = [
+  { name: "neutral", hex: "#71717a" },
+  { name: "red", hex: "#ef4444" },
+  { name: "orange", hex: "#f97316" },
+  { name: "blue", hex: "#3b82f6" },
+  { name: "green", hex: "#22c55e" },
+  { name: "yellow", hex: "#eab308" },
+];
+
+const ANSI_BASE = [
+  ["Black", "neutral"],
+  ["Red", "red"],
+  ["Green", "green"],
+  ["Yellow", "yellow"],
+  ["Blue", "blue"],
+  ["Magenta", "red"],
+  ["Cyan", "blue"],
+  ["White", "neutral"],
+] as const;
+
+function ansiRolesFixture() {
+  return ANSI_BASE.flatMap(([name, defaultColorName], i) => [
+    { role: `ansi${i}`, label: `Terminal ${name} (ANSI ${i})`, defaultColorName },
+    { role: `ansi${i + 8}`, label: `Terminal Light ${name} (ANSI ${i + 8})`, defaultColorName },
+  ]);
+}
+
+function defaultMappingFixture() {
+  const mapping: Record<string, string> = { neutral: "neutral", accent: "blue" };
+  for (const role of ansiRolesFixture()) mapping[role.role] = role.defaultColorName;
+  return mapping;
+}
+
+function resolveMappingFixture(mapping: Record<string, string>, palette: typeof DEFAULT_PALETTE) {
+  const fallback = palette[0]?.hex ?? "#000000";
+  const resolved: Record<string, string> = {};
+  for (const [role, colorName] of Object.entries(mapping)) {
+    resolved[role] = palette.find((c) => c.name === colorName)?.hex ?? fallback;
+  }
+  return resolved;
+}
+
+function reconcileMappingFixture(mapping: Record<string, string>, palette: typeof DEFAULT_PALETTE) {
+  const validNames = new Set(palette.map((c) => c.name));
+  const fallback = palette[0]?.name ?? "";
+  const reconciled: Record<string, string> = {};
+  for (const [role, colorName] of Object.entries(mapping)) {
+    reconciled[role] = validNames.has(colorName) ? colorName : fallback;
+  }
+  return reconciled;
+}
+
 vi.mock("hello-wasm", () => ({
   default: async () => {},
   themeFromColorMapping: (neutralHex: string, accentHex: string, dark: boolean): Theme => ({
@@ -46,6 +103,17 @@ vi.mock("hello-wasm", () => ({
     input: neutralHex,
     ring: accentHex,
   }),
+  defaultPalette: () => DEFAULT_PALETTE,
+  defaultTokenRoles: () => [
+    { id: "neutral", label: "Neutral", description: "Backgrounds, borders, and body text" },
+    { id: "accent", label: "Accent", description: "Primary actions and focus rings" },
+  ],
+  ansiRoles: ansiRolesFixture,
+  defaultMapping: defaultMappingFixture,
+  resolveMapping: resolveMappingFixture,
+  reconcileMapping: reconcileMappingFixture,
+  isRoleProtected: (id: string) => id === "neutral",
+  tokenNameFromClass: (cls: string) => cls.split("/")[0].replace(/^(bg|text|border)-/, ""),
 }));
 
 const { default: App } = await import("./App");
