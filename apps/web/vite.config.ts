@@ -17,6 +17,7 @@ export default defineConfig({
         main: fileURLToPath(new URL("./index.html", import.meta.url)),
         rustHello: fileURLToPath(new URL("./rust-hello/index.html", import.meta.url)),
         tokenEditor: fileURLToPath(new URL("./token-editor/index.html", import.meta.url)),
+        componentSystem: fileURLToPath(new URL("./component-system/index.html", import.meta.url)),
       },
     },
   },
